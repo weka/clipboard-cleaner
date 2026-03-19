@@ -4,7 +4,7 @@ use std::sync::OnceLock;
 static SUFFIX_PATTERN: OnceLock<Regex> = OnceLock::new();
 
 fn get_suffix_pattern() -> &'static Regex {
-    SUFFIX_PATTERN.get_or_init(|| Regex::new(r" │[·]+$").expect("Failed to compile regex pattern"))
+    SUFFIX_PATTERN.get_or_init(|| Regex::new(r" ?│[·]+$").expect("Failed to compile regex pattern"))
 }
 
 pub fn clean_content(content: &str) -> String {
@@ -35,6 +35,13 @@ pub fn clean_content(content: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_remove_suffix_pattern_nospace() {
+        let input = "Hello world│··············";
+        let expected = "Hello world";
+        assert_eq!(clean_content(input), expected);
+    }
 
     #[test]
     fn test_remove_suffix_pattern() {
