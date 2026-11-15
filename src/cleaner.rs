@@ -42,7 +42,21 @@ pub fn clean_content(content: &str) -> String {
         }
     }
 
+    strip_two_space_indent(&mut lines);
+
     lines.join("\n")
+}
+
+/// Claude Code indents snippets by two spaces. If every non-empty line starts
+/// with two spaces, remove them so the snippet can be pasted as-is.
+fn strip_two_space_indent(lines: &mut [String]) {
+    let mut non_empty = lines.iter().filter(|l| !l.is_empty()).peekable();
+    if non_empty.peek().is_none() || !non_empty.all(|l| l.starts_with("  ")) {
+        return;
+    }
+    for line in lines.iter_mut().filter(|l| !l.is_empty()) {
+        line.drain(..2);
+    }
 }
 
 #[cfg(test)]
@@ -127,6 +141,32 @@ mod tests {
     #[test]
     fn test_trim_reg_ticket_newlines() {
         assert_eq!(clean_content("\nREG-42\n\n"), "REG-42");
+    }
+
+    #[test]
+    fn test_strip_two_space_indent() {
+        let input = "  cd /tmp\n  ls -la\n    nested";
+        let expected = "cd /tmp\nls -la\n  nested";
+        assert_eq!(clean_content(input), expected);
+    }
+
+    #[test]
+    fn test_strip_two_space_indent_ignores_empty_lines() {
+        let input = "  for x in a b; do\n\n    echo $x\n  done\n";
+        let expected = "for x in a b; do\n\n  echo $x\ndone";
+        assert_eq!(clean_content(input), expected);
+    }
+
+    #[test]
+    fn test_no_strip_when_some_line_not_indented() {
+        let input = "  indented\nnot indented";
+        assert_eq!(clean_content(input), input);
+    }
+
+    #[test]
+    fn test_no_strip_when_single_space_indent() {
+        let input = "  two\n one";
+        assert_eq!(clean_content(input), input);
     }
 
     #[test]
