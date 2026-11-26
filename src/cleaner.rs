@@ -42,9 +42,32 @@ pub fn clean_content(content: &str) -> String {
         }
     }
 
+    if let Some(joined) = join_wrapped_token(&lines) {
+        return joined;
+    }
+
     strip_two_space_indent(&mut lines);
 
     lines.join("\n")
+}
+
+/// A long path/token wrapped by the terminal arrives as a first line with no
+/// whitespace followed by lines indented by two spaces, each a single
+/// whitespace-free chunk. Rejoin them into the original token.
+fn join_wrapped_token(lines: &[String]) -> Option<String> {
+    let (first, rest) = lines.split_first()?;
+    if rest.is_empty() || first.is_empty() || first.contains(char::is_whitespace) {
+        return None;
+    }
+    let mut joined = first.clone();
+    for line in rest {
+        let chunk = line.strip_prefix("  ")?;
+        if chunk.is_empty() || chunk.contains(char::is_whitespace) {
+            return None;
+        }
+        joined.push_str(chunk);
+    }
+    Some(joined)
 }
 
 /// Claude Code indents snippets by two spaces. If every non-empty line starts
@@ -166,6 +189,24 @@ mod tests {
     #[test]
     fn test_no_strip_when_single_space_indent() {
         let input = "  two\n one";
+        assert_eq!(clean_content(input), input);
+    }
+
+    #[test]
+    fn test_join_wrapped_path() {
+        let input = "/tmp/claude-1001/-home-baruch-dev-bare-wekapp-git--cla\n  ude-worktrees-n2n-relay-qa/45247c19-d8f5-44b6-bc2b-e6ba0efe3a69/scratchpad/n1126/vrdf58/status";
+        let expected = "/tmp/claude-1001/-home-baruch-dev-bare-wekapp-git--claude-worktrees-n2n-relay-qa/45247c19-d8f5-44b6-bc2b-e6ba0efe3a69/scratchpad/n1126/vrdf58/status";
+        assert_eq!(clean_content(input), expected);
+    }
+
+    #[test]
+    fn test_join_wrapped_path_multiple_breaks() {
+        assert_eq!(clean_content("/a/b\n  c/d\n  e/f\n"), "/a/bc/de/f");
+    }
+
+    #[test]
+    fn test_no_join_when_first_line_has_spaces() {
+        let input = "ls /tmp\n  foo";
         assert_eq!(clean_content(input), input);
     }
 
