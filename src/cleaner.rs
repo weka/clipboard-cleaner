@@ -51,12 +51,13 @@ pub fn clean_content(content: &str) -> String {
     lines.join("\n")
 }
 
-/// A long path/token wrapped by the terminal arrives as a first line with no
+/// A long path wrapped by the terminal arrives as a first line with no
 /// whitespace followed by lines indented by two spaces, each a single
-/// whitespace-free chunk. Rejoin them into the original token.
+/// whitespace-free chunk. Only path-like text (first line contains `/`) is
+/// joined, so indented YAML or lists are left alone.
 fn join_wrapped_token(lines: &[String]) -> Option<String> {
     let (first, rest) = lines.split_first()?;
-    if rest.is_empty() || first.is_empty() || first.contains(char::is_whitespace) {
+    if rest.is_empty() || !first.contains('/') || first.contains(char::is_whitespace) {
         return None;
     }
     let mut joined = first.clone();
@@ -202,6 +203,18 @@ mod tests {
     #[test]
     fn test_join_wrapped_path_multiple_breaks() {
         assert_eq!(clean_content("/a/b\n  c/d\n  e/f\n"), "/a/bc/de/f");
+    }
+
+    #[test]
+    fn test_no_join_yaml_mapping() {
+        let input = "key:\n  value";
+        assert_eq!(clean_content(input), input);
+    }
+
+    #[test]
+    fn test_no_join_indented_list() {
+        let input = "Items\n  one\n  two";
+        assert_eq!(clean_content(input), input);
     }
 
     #[test]
